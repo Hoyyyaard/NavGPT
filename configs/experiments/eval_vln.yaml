@@ -1,0 +1,84 @@
+VERBOSE: False
+NUM_CHECKPOINTS: 100
+VIDEO_OPTION: []
+# VIDEO_OPTION: ["disk"]
+# VIDEO_DIR: "example"
+# VIDEO_RENDER_ALL_INFO: False
+# VIDEO_RENDER_VIEWS:
+#   - "third_rgb_sensor"
+
+TRAINER_NAME: "zson-ddppo"
+NUM_ENVIRONMENTS: 11
+
+
+COW:
+  depth_distance: 0.3
+
+
+BASE_TASK_CONFIG_PATH: configs/tasks/r2r.yaml
+EVAL:
+  USE_CKPT_CONFIG: False
+  EVAL_MODE: vln_zson
+  SPLIT: val_unseen
+  
+RL:
+
+  REWARD_MEASURE: "distance_to_goal"
+  SUCCESS_MEASURE: "success"
+
+  POLICY:
+    name: "NavGPTPolicy"
+    backbone: "resnet50"
+    baseplanes: 32
+    hidden_size: 512
+    rnn_type: "LSTM"
+    rnn_num_layers: 2
+
+  PPO:
+    # ppo params
+    clip_param: 0.2
+    ppo_epoch: 4
+    num_mini_batch: 2
+    value_loss_coef: 0.5
+    entropy_coef: 0.01
+    lr: 2.25e-4
+    eps: 1e-5
+    max_grad_norm: 0.5
+    num_steps: 64
+    use_gae: True
+    use_linear_lr_decay: False
+    use_linear_clip_decay: False
+    gamma: 0.99
+    tau: 0.95
+    reward_window_size: 50
+    use_normalized_advantage: False
+    hidden_size: 512
+    use_double_buffered_sampler: False
+
+  DDPPO:
+    sync_frac: 0.6
+    distrib_backend: NCCL
+
+    # Model parameters
+    backbone: resnet50
+    rnn_type: GRU
+    num_recurrent_layers: 1
+
+
+SUBTASK_MAXSTEP: 100
+
+SUBTASK_MODELS:
+  # FORMAT IN TASK NAME : MODEL PATH
+  task1: 
+  task2: 
+  task5: 
+  task6: 
+  task7: 
+
+RANDOM_MODELS:
+  task0: False
+  task1: False
+  task2: False
+  task5: False
+  task6: False
+  task7: False

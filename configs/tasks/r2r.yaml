@@ -1,0 +1,43 @@
+ENVIRONMENT:
+  TYPE: "mp3d"
+  MAX_EPISODE_STEPS: 500
+  ITERATOR_OPTIONS:
+    SHUFFLE: False
+SIMULATOR:
+  ADDITION_ACTION: ['PAUSE']
+  FORWARD_STEP_SIZE: 0.25
+  TURN_ANGLE: 30
+  HABITAT_SIM_V0:
+    GPU_DEVICE_ID: 0
+  AGENT_0:
+    SENSORS: ['RGB_SENSOR', 'DEPTH_SENSOR']
+  RGB_SENSOR:
+    WIDTH: 224
+    HEIGHT: 224
+    HFOV: 30
+    POSITION: [0, 0.5, 0]
+  DEPTH_SENSOR:
+    WIDTH: 256
+    HEIGHT: 256
+    HFOV: 30
+    POSITION: [0, 0.5, 0]
+TASK:
+  # possible_actions: ['stop', 'move_forward', 'turn_left', 'turn_right', 'TurnRight90', 'TurnLeftt90', 'PAUSE']
+  # success_measure: "success"
+  # reward_measure: "distance_to_goal"
+  TYPE: VLN-v0
+  SENSORS: ['PANORAMIC_PERCEPTION_SENSOR','INSTRUCTION_SENSOR']
+  POINTGOAL_WITH_GPS_COMPASS_SENSOR:
+    GOAL_FORMAT: "POLAR"
+    DIMENSIONALITY: 2
+  GOAL_SENSOR_UUID: pointgoal_with_gps_compass
+  MEASUREMENTS: ['DISTANCE_TO_GOAL', 'SUCCESS', 'SPL']
+  SUCCESS:
+    SUCCESS_DISTANCE: 3.0
+  SUCCESS_DISTANCE: 3.0
+DATASET:
+  TYPE: R2RVLN-v2
+  SPLIT: val_unseen
+  DATA_PATH: "data/datasets/vln/mp3d/r2r/v2/{split}/{split}.json.gz"
+  SCENE_DIR: "data/scene_datasets/"
+  EPI_NUM: 2

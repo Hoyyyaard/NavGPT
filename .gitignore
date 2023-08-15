@@ -1,0 +1,11 @@
+
+.vscode/
+__pycache__
+*.egg-info/
+results/
+iscripts/
+habitat-lab-challenge-2022/
+myscripts/
+scripts/hidden
+tool/images
+tool/img
