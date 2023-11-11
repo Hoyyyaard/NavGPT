@@ -22,7 +22,7 @@ class Waypoint_Predictor():
         self.depth_encoder = VlnResnetDepthEncoder(
             self.observation_space,
             output_size=256,
-            checkpoint='/mnt/cephfs/home/zhihongyan/VLN/Discrete-Continuous-VLN/data/pretrained_models/ddppo-models/gibson-2plus-resnet50.pth',
+            checkpoint='tool/Discrete_Continuous_VLN/data/pretrained_models/ddppo-models/gibson-2plus-resnet50.pth',
             backbone='resnet50',
             spatial_output=False,
         )
@@ -33,7 +33,7 @@ class Waypoint_Predictor():
             spatial_output=False,
         )
         visual_encoder_param =  torch.load(
-                '/mnt/cephfs/home/zhihongyan/VLN/Discrete-Continuous-VLN/logs/checkpoints/cont-cwp-cma-ori/cma_ckpt_best.pth',
+                'tool/Discrete_Continuous_VLN/logs/checkpoints/cont-cwp-cma-ori/cma_ckpt_best.pth',
                 map_location = torch.device('cpu'),
             )['state_dict']
         RGB_PARAM_PREFIX = 'net.rgb_encoder.'
@@ -53,7 +53,7 @@ class Waypoint_Predictor():
         self.waypoint_predictor = BinaryDistPredictor_TRM(device=self.device)
         self.waypoint_predictor.load_state_dict(
             torch.load(
-                '/mnt/cephfs/home/zhihongyan/VLN/Discrete-Continuous-VLN//waypoint_prediction/checkpoints/check_val_best_avg_wayscore',
+                'tool/Discrete_Continuous_VLN/waypoint_prediction/checkpoints/check_val_best_avg_wayscore',
                 map_location = torch.device('cpu'),
             )['predictor']['state_dict']
         )
@@ -178,4 +178,4 @@ class Waypoint_Predictor():
                 cand_depth[j][k] = depth_feats[j][img_idxes[k]] 
         cand_direction = dir_angle_feature(batch_angles).to(self.device)
         
-        return batch_angles, batch_distances, batch_angle_index_120split
+        return batch_angles, batch_distances, batch_angle_index_120split, batch_img_idxes

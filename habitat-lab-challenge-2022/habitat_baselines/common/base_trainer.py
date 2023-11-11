@@ -310,6 +310,8 @@ class BaseRLTrainer(BaseTrainer):
             prev_actions = prev_actions[state_index]
 
             for k, v in batch.items():
+                print(k)
+                print(state_index)
                 batch[k] = v[state_index]
 
             rgb_frames = [rgb_frames[i] for i in state_index]

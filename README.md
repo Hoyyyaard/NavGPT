@@ -10,7 +10,7 @@
 ```bash
 conda create -n navgpt python=3.7
 conda activate navgpt
-pip install -re requirements.txt
+pip install -r requirements.txt
 ```
 
 ## run below command to finish one episode:

@@ -149,7 +149,7 @@ class VLNDatasetV2(VLNDatasetV1):
         super().__init__(config)
         self.episodes.sort(key=lambda x: x.episode_id )
         if not config is None:
-            self.episodes = [self.episodes[config.EPI_NUM]]
+            self.episodes = self.episodes[:config.EPI_NUM]
         # self.episodes = self.episodes[:1]
         # self.episodes = [epi for epi in self.episodes if epi.episode_id == 1105]
     def from_json(

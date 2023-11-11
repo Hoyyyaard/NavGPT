@@ -53,7 +53,7 @@ from torch import nn
 from zson.ppo import ZSON_DDPPO, ZSON_PPO
 from zson.utils import add_instr_to_frame
 import clip
-
+MODE = os.environ['MODE']
 def write_json(data, path):
     with open(path, "w") as file:
         file.write(json.dumps(data))
@@ -842,7 +842,14 @@ class ZSONTrainer(PPOTrainer):
             args = []
             for action, obs in zip(actions, observations):
                 args.append({"viewpoint_info":action,"observations":obs})
+            # try:
             outputs = self.envs.call(["NavGPT_Nav"]*self.envs.num_envs, args) 
+            # except:
+            #     args = []
+            #     for action, obs in zip(actions, observations):
+            #         args.append({"viewpoint_info":'fail',"observations":obs})
+            #     outputs = self.envs.call(["NavGPT_Nav"]*self.envs.num_envs, args)
+            
             
             # prev_actions.copy_(actions)  # type: ignore
             # action_names = [
@@ -863,20 +870,27 @@ class ZSONTrainer(PPOTrainer):
             #     step_data = [a.item() for a in actions.to(device="cpu")]
 
             # print('merge:',step_data)
-            # outputs = self.envs.step(step_data)
+            # outputs = self.envs.step([0])
             observations, rewards_l, dones, infos = [list(x) for x in zip(*outputs)]
             stop_action = [4] * len(infos)
             for ii, info in enumerate(infos):
                 self.actor_critic.net.NavGPTs[ii].logger.info('--------------------------------------distance to goal------------------------------------')
                 dtg = info['distance_to_goal']
                 if dtg <= 3.:
+                    dones[ii] = True
                     stop_action[ii] = 0
                 self.actor_critic.net.NavGPTs[ii].logger.info(f'{dtg}')
             # oracle success
             # try:
-            #     self.envs.step(stop_action)
+            if MODE == 'oracle': 
+                outputs = self.envs.step(stop_action)
+                observations, _, _, _ = [list(x) for x in zip(*outputs)]
             # except Exception as e:
             #     print("Oracle Stop Step Error:",e)
+            
+            # for ai,a in enumerate(actions):
+            #     if a == "finish":
+            #         dones[ai] = True
 
             filter_obs = copy.deepcopy(observations)
             instructions = []
@@ -992,7 +1006,7 @@ class ZSONTrainer(PPOTrainer):
             )
             
             num_episodes = len(stats_episodes)
-            if num_episodes != 0 and num_episodes % 50 == 0:
+            if not not_done_masks[0].item():
                 aggregated_stats = {}
                 for stat_key in next(iter(stats_episodes.values())).keys():
                     aggregated_stats[stat_key] = (
@@ -1014,8 +1028,8 @@ class ZSONTrainer(PPOTrainer):
             logger.info(f"Average episode {k}: {v:.4f}")
 
         step_id = checkpoint_index
-        if "extra_state" in ckpt_dict and "step" in ckpt_dict["extra_state"]:
-            step_id = ckpt_dict["extra_state"]["step"]
+        # if "extra_state" in ckpt_dict and "step" in ckpt_dict["extra_state"]:
+        #     step_id = ckpt_dict["extra_state"]["step"]
 
         writer.add_scalars(
             "eval_reward",

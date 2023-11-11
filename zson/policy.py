@@ -60,17 +60,18 @@ class NavGPTPolicyNet(Net):
 
     def _parse_candidate_viewpoint(self, observations):
         split_angel_in_radius = observations['split_angle'] / 180 * np.pi
-        batch_angles, batch_distances, batch_angle_index_120split = self.waypoint_predictor.forward(observations)
+        batch_angles, batch_distances, batch_angle_index_120split, batch_img_idxes = self.waypoint_predictor.forward(observations)
         # TODO:对每个候选的viewpoint编号
         batch_candidate_viewpoints = []
         for b in range(len(batch_angles)):
             candidate_viewpoints = {}
             for a,ag in enumerate(batch_angles[b]):
                 # viewpointId =  int(ag / split_angel_in_radius)
-                viewpointId = 12 - round(batch_angle_index_120split[b][a].item() * 3 / observations['split_angle'].item())
-                assert viewpointId <= 12
-                if viewpointId == 12 :
-                    viewpointId = 0
+                # viewpointId = 12 - round(batch_angle_index_120split[b][a].item() * 3 / observations['split_angle'].item())
+                # assert viewpointId <= 12
+                # if viewpointId == 12 :
+                #     viewpointId = 0
+                viewpointId = batch_img_idxes[b][a].item()
                 if not viewpointId in candidate_viewpoints.keys():
                     candidate_viewpoints[viewpointId] = [{'unique_id':f'{self.global_cand_vp_id:04}',        
                                                         'angle':ag,
@@ -127,7 +128,11 @@ class NavGPTPolicyNet(Net):
             self.NavGPTs[b].logger.info(f'---------------------------current position-------------------------------------')
             self.NavGPTs[b].logger.info(observations['cur_pos2world'][b])
             overall_prompt, observation_prompt = self.NavGPTs[b].NavGPT_prompt(observations['instruction'][b], b, observations, batch_candidate_viewpoints)
-            action, thought = self.NavGPTs[b].forward(overall_prompt, observation_prompt)
+            try:
+                action, thought = self.NavGPTs[b].forward(overall_prompt, observation_prompt)
+            except:
+                action = 'fail'
+                thought = ''
             batch_observation_prompt.append(observation_prompt)
             batch_thought.append(thought)
             batch_actions.append(action)

@@ -1,5 +1,8 @@
+import os
 import openai
-openai.api_key = os.environ['OPENAI_API_KEY']
+# openai.api_key = os.environ['OPENAI_API_KEY']
+openai.api_key = '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'
+openai.proxy = "http://127.0.0.1:7893"
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -11,7 +14,7 @@ import torch
 from PIL import Image
 import time
 import numpy as np
-
+BASE_LOG_DIR = os.environ['BASE_LOG_DIR']
 import logging
 
 class NavGPT():
@@ -70,15 +73,15 @@ never fabricate none xistent IDs.\
 ----\nRemember only output one Thought and Action once\n\
 Remember only select one candidate navigable viewpoint from the current observation. viewpoint ID in \'History Observation\' is unaviable\n\
 Do not select base on the history observations.\n\
-Remeber output \'Final Answer: Finished\' when you think you arrive the target position.\n\
 Starting below, you should strictly follow this format: Instruction: an instruction of a trajectory which  \
 describes all observations and the actionsshould be taken \n Initial Observation: the initial observation \
 of the environment \n Thought: you should always think about what to do next and why \n \
 Action: the action to take, must be one of the tools [action_maker] \n Action Input: "Viewpoint ID" \n\
-Please be carefully to output the \'Final Answer: Finished!\' only when you think you have finish the whole instruction but not a substep.\n\
 ----Begin!\n\
 Instruction: {instruction}\n'                                                                             
 
+# Remeber output \'Final Answer: Finished\' when you think you arrive the target position.\n\
+# Please be carefully to output the \'Final Answer: Finished!\' only when you think you have finish the whole instruction but not a substep.\n\
         return system_prompt
 
     def parse_history_message(self, viewpoint_textual_description, thought, last_action, cur_angle=None):
@@ -110,6 +113,16 @@ Summarization: The scene from the viewpoint is'
     @function_runtime
     def parse_observation_prompt(self, observation, batch_index, batch_candidate_viewpoints):
         angle = 30
+        
+        cur_angle2degree = observation['cur_angle'].item() / np.pi * 180
+        viewpointId_offset = round(cur_angle2degree / observation['split_angle'].item())
+        def round_angle(x):
+            if x > 360:
+                x -= 360
+            elif x < 0:
+                x += 360
+            return x
+        
         rgb_list = []
         depth_list = []
         num = int(360 / observation['split_angle'].item())
@@ -150,7 +163,7 @@ Summarization: The scene from the viewpoint is'
                 center_depth = depth_list[li][center_xy[1], center_xy[0]].item() * 10
                 angle_offset = (center_xy[0] - int(depth_list[li].size()[0]/2)) / depth_list[li].size()[0] * observation['split_angle'].item()
                 angle = li * observation['split_angle'].item() + angle_offset
-                angle_msg_obj = angle_msg(angle)
+                angle_msg_obj = angle_msg(round_angle(angle - cur_angle2degree))
                 object.append(object_msg(center_depth, angle_msg_obj, l))
             object_list.append(object)
         
@@ -162,13 +175,14 @@ Summarization: The scene from the viewpoint is'
                 candidate_viewpoints_prompt = 'Navigable viewpoints:\n'
                 for cvp in candidate_viewpoints[i]:
                     uid = cvp['unique_id']
-                    amsg = angle_msg(int(cvp['angle'] / np.pi * 180))
+                    amsg = angle_msg(int(round_angle((cvp['angle'] / np.pi * 180) - cur_angle2degree)))
                     dis = cvp['distance']
                     candidate_viewpoints_prompt += f'[{uid} : {amsg}, {dis}m]'
             else:
                 candidate_viewpoints_prompt = 'Navigable viewpoints: None'
             candidate_viewpoints_prompt += '\n'
-            observation_prompt += f'Heading : {angle_msg(split_angle*i)}\n\
+            heading2robot = round_angle(split_angle*i - cur_angle2degree)
+            observation_prompt += f'Heading : {angle_msg(heading2robot)}\n\
 {captions[i]}\n\
 Objects in View:{object_list[i]}\n\
 {candidate_viewpoints_prompt}\n'
@@ -187,9 +201,9 @@ Objects in View:{object_list[i]}\n\
         # handler1.setFormatter(formatter)
         # self.logger.addHandler(handler1)
         self.logger.setLevel(logging.DEBUG)
-        if not os.path.exists('results//NavGPT/Prompt'):
-                os.makedirs('results//NavGPT/Prompt')
-        file_handler = logging.FileHandler(f'results//NavGPT/Prompt/{episode_id}.log')
+        if not os.path.exists(f'{BASE_LOG_DIR}/Prompt'):
+            os.makedirs(f'{BASE_LOG_DIR}/Prompt')
+        file_handler = logging.FileHandler(f'{BASE_LOG_DIR}/Prompt/{episode_id}.log')
         file_handler.setLevel(level=logging.DEBUG)
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)

@@ -3,4 +3,8 @@
 __pycache__
 *.egg-info/
 scripts/hidden
-
+results
+*/__pycache__
+tool/Discrete_Continuous_VLN/logs/checkpoints
+tool/Discrete_Continuous_VLN/data/pretrained_models
+data

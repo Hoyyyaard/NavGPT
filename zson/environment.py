@@ -15,6 +15,8 @@ import cv2
 from habitat.utils.geometry_utils import quaternion_to_list
 from scipy.spatial.transform import Rotation as R
 import habitat_sim
+BASE_LOG_DIR = os.environ['BASE_LOG_DIR']
+MODE = os.environ['MODE']
 
 @attr.s(auto_attribs=True)
 class BaseEpisode:
@@ -156,18 +158,34 @@ class SimpleRLEnv(habitat.RLEnv):
                 frame = self.draw_top_down_map(
                     self._env.get_metrics(), heading-np.pi/2, tdm.shape[0]
                 )
-                path = f'results/NavGPT/visualization/{self._env.current_episode.episode_id}'
+                path = f'{BASE_LOG_DIR}/visualization/{self._env.current_episode.episode_id}'
                 if not os.path.exists(path):
                     os.makedirs(path)
                 cv2.imwrite(f'{path}/{self.count}.png',frame)
                 self.count += 1
         # ----------------------------可视化waypoint----------------------------
-        
+        print(f"current steps : {self._env._elapsed_steps }")
         if viewpoint_info == 'fail':
             print('NavGPT Fail To Generate Action')
-            time.sleep(10)
+            # time.sleep(10)
         elif viewpoint_info == 'finish':
-            obs = self._env.step(0)
+            if MODE == 'oracle':
+                obs = self._env.step(4)
+                r = self.get_reward(None)
+                d = self.get_done(None),                    
+                info = self.get_info(None)
+                return  obs, r, False ,info 
+            elif MODE == 'normal':
+                
+                obs = self._env.step(0)
+                r = self.get_reward(None)
+                d = self.get_done(None),                    
+                info = self.get_info(None)
+                obs = self._env.reset()     
+                return  obs, r, True ,info 
+            else:
+                raise Exception   
+
         else:
             goal = viewpoint_info['pos2world']
             # path = habitat_sim.ShortestPath()
@@ -183,7 +201,7 @@ class SimpleRLEnv(habitat.RLEnv):
             #     sample_near_naviable_point_num -= 1
             last_action = None
             sample_near_naviable_point_num = 5
-            max_step_per_round = 30
+            max_step_per_round = 50
             while True:
                 gt_action = self.follower.get_next_action(goal)
                 if gt_action is None:
@@ -201,9 +219,19 @@ class SimpleRLEnv(habitat.RLEnv):
                     max_step_per_round -= 1
                     if not self._past_limit_warning():
                         print("step:",gt_action)
+                        # try:
                         obs = self._env.step(gt_action)
+                        r = self.get_reward(None)
+                        d = self.get_done(None),                    
+                        info = self.get_info(None)
+                        # except:
+                        #     break
                     else:
-                        break
+                        r = self.get_reward(None)
+                        d = self.get_done(None),                    
+                        info = self.get_info(None)
+                        obs = self._env.reset()
+                        return obs, r, d, info
             
         return  obs,                                    \
                 self.get_reward(None),                  \
