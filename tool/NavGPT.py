@@ -1,8 +1,8 @@
 import os
 import openai
 # openai.api_key = os.environ['OPENAI_API_KEY']
-openai.api_key = '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'
-openai.proxy = "http://127.0.0.1:7893"
+openai.api_key = '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'
+openai.proxy = "http://127.0.0.1:7895"
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -45,7 +45,8 @@ class NavGPT():
         return [{"role": "assistant", "content": response}]
     
     def parse_system_prompt(self, instruction):
-        system_prompt = f'You are an intelligent embodied agent that follows an instruction to navigate in an indoor environment.\
+        if os.environ['MODE'] == 'oracle':
+            system_prompt = f'You are an intelligent embodied agent that follows an instruction to navigate in an indoor environment.\
 Your task is to move among the static viewpoints (positions) of a pre-defined graph of the environment, \
 and try to reach the target viewpoint as described by the given instructionwith the least steps.\n\
 At the beginning of the navigation, you will be given an instruction of a trajectory which describes all \
@@ -78,10 +79,45 @@ describes all observations and the actionsshould be taken \n Initial Observation
 of the environment \n Thought: you should always think about what to do next and why \n \
 Action: the action to take, must be one of the tools [action_maker] \n Action Input: "Viewpoint ID" \n\
 ----Begin!\n\
-Instruction: {instruction}\n'                                                                             
+Instruction: {instruction}\n'  
+        elif os.environ['MODE'] == 'normal':
+           system_prompt = f'You are an intelligent embodied agent that follows an instruction to navigate in an indoor environment.\
+Your task is to move among the static viewpoints (positions) of a pre-defined graph of the environment, \
+and try to reach the target viewpoint as described by the given instructionwith the least steps.\n\
+At the beginning of the navigation, you will be given an instruction of a trajectory which describes all \
+observations and the action you should take at each step.During navigation, at each step, you will be at \
+a specific viewpoint and receive the history of previous steps you have taken (containing your "Thought", \
+"Action", "Action Input" and"Observation" after the "Begin!" sign) and the observation of current \
+viewpoint (including scene descriptions, objects, and navigable directions/distances within 3 meters). \
+Orientations range from -180 to 180 degrees: "0" signifies forward, "right 90" rightward, "right(or left) \
+180" backward, and "left 90" leftward. \n\
+You make actions by selecting navigable viewpoints to reach the destination. You are encouraged to explore \
+the environment while avoiding revisiting viewpoints by comparing current navigable and previously \
+visited IDs in previous "Action Input". The ultimate goal is to stop within 3 meters of the destination \
+in the instruction. If destination visible but the target object is not detected within 3 meters, \
+move closer. \n\
+At each step, you should consider:(1) According to Current Viewpoint observation and History, have you \
+reached the destination? If yes you should stop, output the \'Final Answer: Finished!\' to stop.If not \
+you should continue: \n (2) Consider where you are on the trajectory and what should be the next viewpoint \
+to navigatea ccording to the instruction.Use the action_maker tool, input the next navigable viewpoint ID in current observation\
+to move to that location.Show your reasoning in the Thought section. \n\
+Here are the descriptions of the action_maker tool: \n Can be used to move to next adjacent viewpoint. \n \
+The input to this tool should be a viewpoint ID string of the next viewpoint you wish to visit. \n \
+For example: \nAction: action_maker \n Action Input: "0001". \n\
+Every viewpoint has a unique viewpoint ID. You are very strict to the viewpoint ID and will  \
+never fabricate none xistent IDs.\
+----\nRemember only output one Thought and Action once\n\
+Remember only select one candidate navigable viewpoint from the current observation. viewpoint ID in \'History Observation\' is unaviable\n\
+Do not select base on the history observations.\n\
+Remeber output \'Final Answer: Finished\' when you think you arrive the target position.\n\
+Please be carefully to output the \'Final Answer: Finished!\' only when you think you have finish the whole instruction but not a substep.\n\
+Starting below, you should strictly follow this format: Instruction: an instruction of a trajectory which  \
+describes all observations and the actionsshould be taken \n Initial Observation: the initial observation \
+of the environment \n Thought: you should always think about what to do next and why \n \
+Action: the action to take, must be one of the tools [action_maker] \n Action Input: "Viewpoint ID" \n\
+----Begin!\n\
+Instruction: {instruction}\n'                                                                     
 
-# Remeber output \'Final Answer: Finished\' when you think you arrive the target position.\n\
-# Please be carefully to output the \'Final Answer: Finished!\' only when you think you have finish the whole instruction but not a substep.\n\
         return system_prompt
 
     def parse_history_message(self, viewpoint_textual_description, thought, last_action, cur_angle=None):
@@ -271,7 +307,11 @@ Action: the action to take, must be one of the tools [action_maker]\nAction Inpu
         overall_message = self._prompt2message(overall_prompt)
         self.logger.info('---------------------------------------query------------------------------------------------')
         self.logger.info(overall_prompt)
-        answer, token_info = self.query_gpt3(overall_message)
+        try:
+            answer, token_info = self.query_gpt3(overall_message)
+        except Exception as e:
+            print(e)
+            time.sleep(20)
         self.logger.info('---------------------------------------answer------------------------------------------------')
         self.logger.info(answer)
         action, thought = self._answer2info(answer)

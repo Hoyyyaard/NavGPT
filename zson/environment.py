@@ -145,6 +145,19 @@ class SimpleRLEnv(habitat.RLEnv):
                 
             if not metrics['top_down_map'] is None:
                 tdm = copy.deepcopy(self.origin_tdm)
+                # draw all candidate viewpoints
+                for cvps in viewpoint_info['all_viewpoint_info']:
+                    for cvp in cvps:
+                        waypoint2map = maps.to_grid(
+                                cvp['pos2world'][2],
+                                cvp['pos2world'][0],
+                                [tdm.shape[0],tdm.shape[1]],
+                                pathfinder=self._env._sim.pathfinder,
+                            )
+                        cv2.circle(tdm, waypoint2map[::-1], 10, (255,0,255), -1)
+                        info = '{}'.format(cvp['unique_id'])
+                        cv2.putText(tdm, info ,waypoint2map[::-1],cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 0, 255), 2)
+                        
                 waypoint2map = maps.to_grid(
                                 viewpoint_info['pos2world'][2],
                                 viewpoint_info['pos2world'][0],
@@ -152,7 +165,7 @@ class SimpleRLEnv(habitat.RLEnv):
                                 pathfinder=self._env._sim.pathfinder,
                             )
                 # print(waypoint2map)
-                cv2.circle(tdm, waypoint2map[::-1], 20, (255,0,255), -1)
+                cv2.circle(tdm, waypoint2map[::-1], 10, (255,255,0), -1)
                 # cv2.putText(tdm, f"{save_count}", waypoint2map[::-1], cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,255), 2)
                 metrics['top_down_map']["map"] = tdm
                 frame = self.draw_top_down_map(
@@ -176,7 +189,6 @@ class SimpleRLEnv(habitat.RLEnv):
                 info = self.get_info(None)
                 return  obs, r, False ,info 
             elif MODE == 'normal':
-                
                 obs = self._env.step(0)
                 r = self.get_reward(None)
                 d = self.get_done(None),                    

@@ -149,6 +149,7 @@ class NavGPTPolicyNet(Net):
                     for cvp in v:
                         if cvp['unique_id'] == a:
                             ac = cvp
+                            ac['all_viewpoint_info'] = list(batch_candidate_viewpoints[ai].values())
                             self.NavGPTs[ai].logger.info('-------------------------------target position-----------------------------------')
                             self.NavGPTs[ai].logger.info(ac['pos2world'])
                             for t in range(len(batch_thought)):

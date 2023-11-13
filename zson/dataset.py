@@ -148,6 +148,8 @@ class VLNDatasetV2(VLNDatasetV1):
     def __init__(self, config: Optional[Config] = None) -> None:
         super().__init__(config)
         self.episodes.sort(key=lambda x: x.episode_id )
+        # import random
+        # random.shuffle(self.episodes)
         if not config is None:
             self.episodes = self.episodes[:config.EPI_NUM]
         # self.episodes = self.episodes[:1]

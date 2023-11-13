@@ -894,6 +894,7 @@ class ZSONTrainer(PPOTrainer):
 
             filter_obs = copy.deepcopy(observations)
             instructions = []
+            cur_pos2world = []
             for oi,ob in enumerate(observations):
                 del filter_obs[oi]['instruction']
                 del filter_obs[oi]['panoramic_perception_sensor']

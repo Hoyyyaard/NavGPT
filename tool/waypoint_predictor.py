@@ -10,6 +10,14 @@ from tool.Discrete_Continuous_VLN.waypoint_prediction.utils import nms
 from tool.Discrete_Continuous_VLN.vlnce_baselines.models.utils import (
     length2mask, angle_feature, dir_angle_feature)
 import math
+import os
+LLAVA_CACHE_DIR = os.environ['LLAVA_CACHE_DIR']
+LLM_TYPE = os.environ['LLM_TYPE']
+import cv2
+from PIL import Image
+from torchvision import transforms
+import numpy as np
+import json
 
 class Waypoint_Predictor():
     
@@ -62,6 +70,26 @@ class Waypoint_Predictor():
         self.waypoint_predictor.to(self.device)
         
         pass
+    
+    def _viewpoint2world(self, angle2radius, distance, cur_pos2world):
+        '''
+            坐标系定义（topdownmap视角）：
+                robot ego： z朝上，x朝左， heading=0朝上逆时针增加
+                world：x朝右，z朝下
+        '''
+        # 构建robot到world的转换矩阵
+        T_w2r = np.mat([[ np.cos(np.pi), 0, np.sin(np.pi) , cur_pos2world[0]], 
+                        [0             , 1, 0             , 0               ],
+                        [-np.sin(np.pi), 0, np.cos(np.pi) , cur_pos2world[2]],
+                        [0             , 0, 0             , 1               ]])
+        Pr = np.mat([[distance * np.sin(angle2radius)],
+                     [cur_pos2world[1]]               ,
+                     [distance * np.cos(angle2radius)],
+                     [1]])
+        Pw = np.dot(T_w2r, Pr)
+        
+        return [Pw.item(0,0), Pw.item(1,0), Pw.item(2,0)]
+    
     
     def forward(self, observations):
         '''
@@ -177,5 +205,44 @@ class Waypoint_Predictor():
                 cand_rgb[j][k] = rgb_feats[j][img_idxes[k]]
                 cand_depth[j][k] = depth_feats[j][img_idxes[k]] 
         cand_direction = dir_angle_feature(batch_angles).to(self.device)
+        
+        
+        # For llava
+        if LLM_TYPE == 'llava':
+            if not os.path.exists(LLAVA_CACHE_DIR):
+                os.makedirs(LLAVA_CACHE_DIR)
+            angle = 0
+            for ai in range(12):
+                key = 'rgb' if angle == 0 else f'rgb_{angle}.0'
+                image = observations[key].cpu().clone()
+                image = image.squeeze(0) 
+                image = image.numpy()
+                image = (image * 255).astype(np.uint8)
+                image = Image.fromarray(image)
+                image.save(f'{LLAVA_CACHE_DIR}/{ai}.png')
+                angle += 30
+            candidate_viewpoint_info = {}
+            global_cand_vp_id = 0
+            for a,ag in enumerate(batch_angles[0]):
+                viewpointId = batch_img_idxes[0][a].item()
+                if not viewpointId in candidate_viewpoint_info.keys():
+                    candidate_viewpoint_info[viewpointId] = [{'unique_id':f'{global_cand_vp_id:04}',        
+                                                        'angle':ag,
+                                                        'distance':batch_distances[0][a],
+                                                        'pos2world':self._viewpoint2world(ag, 
+                                                                                          batch_distances[0][a], 
+                                                                                        observations['cur_pos2world'][0])}]
+                    global_cand_vp_id += 1                                                                     
+                else:
+                    candidate_viewpoint_info[viewpointId].append({'unique_id':f'{global_cand_vp_id:04}',          
+                                                        'angle':ag,
+                                                        'distance':batch_distances[0][a],
+                                                        'pos2world':self._viewpoint2world(ag, 
+                                                                                          batch_distances[0][a], 
+                                                                                          observations['cur_pos2world'][0])})
+                    global_cand_vp_id += 1     
+            with open(f'{LLAVA_CACHE_DIR}/candidate_viewpoint_info.json',"w") as f:
+                json.dump(candidate_viewpoint_info, f)                                       
+            
         
         return batch_angles, batch_distances, batch_angle_index_120split, batch_img_idxes

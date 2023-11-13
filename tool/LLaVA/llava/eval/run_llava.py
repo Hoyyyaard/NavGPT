@@ -94,6 +94,7 @@ def eval_model(args):
     prompt = conv.get_prompt()
 
     image_files = image_parser(args)
+    # print(image_files)
     images = load_images(image_files)
     images_tensor = process_images(
         images,
