@@ -719,8 +719,8 @@ class ZSONTrainer(PPOTrainer):
         config.defrost()
         config.TASK_CONFIG.DATASET.SPLIT = config.EVAL.SPLIT
         config.SENSORS.extend(['RGB_BACK_SENSOR','RGB_LEFT_SENSOR','RGB_RIGHT_SENSOR','RGB_FORWARD_SENSOR'])
-        pano_key = [f'RGB_SENSOR_{i*30}' for i in range(1,12)]
-        pano_depth_key = [f'DEPTH_SENSOR_{i*30}' for i in range(1,12)]
+        pano_key = [f'RGB_SENSOR_{i*45}' for i in range(1,8)]
+        pano_depth_key = [f'DEPTH_SENSOR_{i*45}' for i in range(1,8)]
         config.SENSORS.extend(pano_key)
         config.SENSORS.extend(pano_depth_key)
         config.freeze()

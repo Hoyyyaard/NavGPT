@@ -32,6 +32,25 @@ class NavGPT():
         self.device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
         self.VFM = VisualFoundationModels(self.device)
         self.step = 0
+        
+        self.gt_obs = {}
+        gt_obs_file = '/mnt/gluster/home/zhihongyan/Project/NavGPT/tool/NavGPT/datasets/R2R/observations_list_summarized'
+        for observation_list in os.listdir(gt_obs_file):
+            file = os.path.join(gt_obs_file, observation_list)
+            scene_id = observation_list.split('.')[0]
+            with open(file, "r") as f:
+                data = json.load(f)
+            self.gt_obs[scene_id] = data
+            
+        self.gt_obj = {}
+        gt_obj_file = '/mnt/gluster/home/zhihongyan/Project/NavGPT/tool/NavGPT/datasets/R2R/objects_list'
+        for obj_list in os.listdir(gt_obj_file):
+            file = os.path.join(gt_obj_file, obj_list)
+            scene_id = obj_list.split('.')[0]
+            with open(file, "r") as f:
+                data = json.load(f)
+            self.gt_obj[scene_id] = data
+        
     
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(10))
     def query_gpt3(self, messages):
@@ -161,7 +180,7 @@ Summarization: The scene from the viewpoint is'
     
     @function_runtime
     def parse_observation_prompt(self, observation, batch_index, batch_candidate_viewpoints):
-        angle = 30
+        angle = 45
         
         cur_angle2degree = observation['cur_angle'].item() / np.pi * 180
         viewpointId_offset = round(cur_angle2degree / observation['split_angle'].item())
@@ -183,7 +202,7 @@ Summarization: The scene from the viewpoint is'
             else:
                 # rgb_list.append(Image.fromarray(observation[f'rgb_{angle}.0'][batch_index].cpu().numpy()))
                 rgb_list.append(observation[f'rgb_{angle}.0'][batch_index].permute(2,1,0).cpu())
-                depth_list.append(observation['depth'][batch_index].resize_(observation[f'depth_{angle}.0'][batch_index].size()[0],observation['rgb'][batch_index].size()[1], 1))
+                depth_list.append(observation[f'depth_{angle}.0'][batch_index].resize_(observation[f'depth_{angle}.0'][batch_index].size()[0],observation['rgb'][batch_index].size()[1], 1))
                 angle += int(observation['split_angle'].item())
                 
         # captions = []
@@ -193,6 +212,12 @@ Summarization: The scene from the viewpoint is'
         rgb_list = torch.stack(rgb_list, dim=0)
         captions, bboxs, labels = self.VFM(rgb_list)
         
+        # use gt obs caption
+        if os.environ['CAND'] == 'graph':
+            try:
+                captions = self.gt_obs[list(batch_candidate_viewpoints[0].values())[0][0]['scene_id']][list(batch_candidate_viewpoints[0].values())[0][0]['closest_point']]
+            except:
+                pass
         # for rgb in rgb_list:
         #     caption, bbox, label = self.VFM(rgb)
         #     captions.append(caption[0])
@@ -215,6 +240,26 @@ Summarization: The scene from the viewpoint is'
                 angle_msg_obj = angle_msg(round_angle(angle - cur_angle2degree))
                 object.append(object_msg(center_depth, angle_msg_obj, l))
             object_list.append(object)
+        
+        # use gt obj caption
+        if os.environ['CAND'] == 'graph':
+            try:
+                object_list1 = []
+                objs = self.gt_obj[list(batch_candidate_viewpoints[0].values())[0][0]['scene_id']][list(batch_candidate_viewpoints[0].values())[0][0]['closest_point']]
+                for oi,obj in enumerate(objs):
+                    object_list1.append([])
+                    for k ,v in obj.items():
+                        angle = v["heading"]
+                        dis = v["distance"]
+                        if angle > 360:
+                            angle -= 360
+                        elif angle < 0:
+                            angle += 360
+                        object_list1[oi].append(f'[{k}: {angle_msg(round_angle(angle - cur_angle2degree))}, {dis}]')
+                object_list =  object_list1   
+            except:
+                pass    
+                
         
         candidate_viewpoints = batch_candidate_viewpoints[batch_index]
         observation_prompt = 'Current Observation:\n\n'
