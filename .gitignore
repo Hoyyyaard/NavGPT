@@ -8,3 +8,4 @@ results
 tool/Discrete_Continuous_VLN/logs/checkpoints
 tool/Discrete_Continuous_VLN/data/pretrained_models
 data
+tool/NavGPT/datasets

@@ -718,6 +718,11 @@ class ZSONTrainer(PPOTrainer):
         ppo_cfg = config.RL.PPO
         config.defrost()
         config.TASK_CONFIG.DATASET.SPLIT = config.EVAL.SPLIT
+        config.SENSORS.extend(['RGB_BACK_SENSOR','RGB_LEFT_SENSOR','RGB_RIGHT_SENSOR','RGB_FORWARD_SENSOR'])
+        pano_key = [f'RGB_SENSOR_{i*30}' for i in range(1,12)]
+        pano_depth_key = [f'DEPTH_SENSOR_{i*30}' for i in range(1,12)]
+        config.SENSORS.extend(pano_key)
+        config.SENSORS.extend(pano_depth_key)
         config.freeze()
 
         if len(self.config.VIDEO_OPTION) > 0:
@@ -824,9 +829,11 @@ class ZSONTrainer(PPOTrainer):
 
         pbar = tqdm.tqdm(total=number_of_eval_episodes)
         self.actor_critic.eval()
+        dtg_list = []
         while len(stats_episodes) < number_of_eval_episodes and self.envs.num_envs > 0:
             current_episodes = self.envs.current_episodes()
             batch['current_episodes_id'] = [f'{epi.episode_id}' for epi in current_episodes]
+            batch['current_scene_id'] = [epi.scene_id.split('/')[-1].split('.')[0] for epi in current_episodes]
             with torch.no_grad():
                 (_, actions, _, test_recurrent_hidden_states,) = self.actor_critic.act(
                     batch,
@@ -876,6 +883,7 @@ class ZSONTrainer(PPOTrainer):
             for ii, info in enumerate(infos):
                 self.actor_critic.net.NavGPTs[ii].logger.info('--------------------------------------distance to goal------------------------------------')
                 dtg = info['distance_to_goal']
+                dtg_list.append(dtg)
                 if dtg <= 3.:
                     dones[ii] = True
                     stop_action[ii] = 0
@@ -884,7 +892,7 @@ class ZSONTrainer(PPOTrainer):
             # try:
             if MODE == 'oracle': 
                 outputs = self.envs.step(stop_action)
-                observations, _, _, _ = [list(x) for x in zip(*outputs)]
+                observations, _, _, infos = [list(x) for x in zip(*outputs)]
             # except Exception as e:
             #     print("Oracle Stop Step Error:",e)
             
@@ -937,8 +945,15 @@ class ZSONTrainer(PPOTrainer):
 
                 # episode ended
                 if not not_done_masks[i].item():
-                    pbar.update()
+                    oracle_success = 0
+                    for dtg in dtg_list:
+                        if dtg <= 3.:
+                            oracle_success = 1
+                            break
+                    dtg_list = []
+                    pbar.update(1)
                     episode_stats = {}
+                    episode_stats['oracle_success'] = oracle_success
                     episode_stats["reward"] = current_episode_reward[i].item()
                     episode_stats.update(self._extract_scalars_from_info(infos[i]))
                     current_episode_reward[i] = 0
@@ -986,28 +1001,29 @@ class ZSONTrainer(PPOTrainer):
             # TODO:根据env_to_pause 后处理
             # self._suit_env2pause(envs_to_pause)
             
-            not_done_masks = not_done_masks.to(device=self.device)
-            (
-                self.envs,
-                test_recurrent_hidden_states,
-                not_done_masks,
-                current_episode_reward,
-                prev_actions,
-                batch,
-                rgb_frames,
-            ) = self._pause_envs(
-                envs_to_pause,
-                self.envs,
-                test_recurrent_hidden_states,
-                not_done_masks,
-                current_episode_reward,
-                prev_actions,
-                batch,
-                rgb_frames,
-            )
+            # not_done_masks = not_done_masks.to(device=self.device)
+            # (
+            #     self.envs,
+            #     test_recurrent_hidden_states,
+            #     not_done_masks,
+            #     current_episode_reward,
+            #     prev_actions,
+            #     batch,
+            #     rgb_frames,
+            # ) = self._pause_envs(
+            #     envs_to_pause,
+            #     self.envs,
+            #     test_recurrent_hidden_states,
+            #     not_done_masks,
+            #     current_episode_reward,
+            #     prev_actions,
+            #     batch,
+            #     rgb_frames,
+            # )
             
             num_episodes = len(stats_episodes)
             if not not_done_masks[0].item():
+                logger.info(stats_episodes)
                 aggregated_stats = {}
                 for stat_key in next(iter(stats_episodes.values())).keys():
                     aggregated_stats[stat_key] = (

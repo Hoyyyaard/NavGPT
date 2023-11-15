@@ -130,6 +130,11 @@ class SimpleRLEnv(habitat.RLEnv):
         # ----------------------------可视化waypoint----------------------------
         metrics = self._env.get_metrics()
         if not metrics['top_down_map'] is None and (not viewpoint_info == 'fail') and (not viewpoint_info == 'finish'):
+            
+            path = f'{BASE_LOG_DIR}/visualization/{self._env.current_episode.episode_id}'
+            if not os.path.exists(path):
+                os.makedirs(path)
+                    
             heading = self.transformation_quatrtnion2heading(self._env.sim.get_agent_state().rotation)
             metrics = self._env.get_metrics()
             
@@ -142,7 +147,32 @@ class SimpleRLEnv(habitat.RLEnv):
             
             if self.origin_tdm is None:
                 self.origin_tdm =  metrics['top_down_map']['map']
+            
+            if 'graph' in viewpoint_info.keys():
+                if not os.path.exists(f'{BASE_LOG_DIR}/visualization/{self._env.current_episode.episode_id}/graph.png'):
+                    graph_tdm = copy.deepcopy(self.origin_tdm)
+                    for node, v in viewpoint_info['graph'].items():
+                        waypoint2map = maps.to_grid(
+                                v['position'][2],
+                                v['position'][0],
+                                [graph_tdm.shape[0],graph_tdm.shape[1]],
+                                pathfinder=self._env._sim.pathfinder,
+                            )
+                        cv2.circle(graph_tdm, waypoint2map[::-1], 10, (255,0,255), -1)
+                    cv2.imwrite(f'{BASE_LOG_DIR}/visualization/{self._env.current_episode.episode_id}/graph.png',graph_tdm)
                 
+                    # closest_point_tdm = copy.deepcopy(self.origin_tdm)
+                    # for node, v in viewpoint_info['graph'].items():
+                    #     waypoint2map = maps.to_grid(
+                    #             v['position'][2],
+                    #             v['pos2world'][0],
+                    #             [tdm.shape[0],tdm.shape[1]],
+                    #             pathfinder=self._env._sim.pathfinder,
+                    #         )
+                    #     cv2.circle(graph_tdm, waypoint2map[::-1], 10, (255,0,255), -1)
+                    # cv2.imwrite(f'{BASE_LOG_DIR}/visualization/{self._env.current_episode.episode_id}/graph.png',graph_tdm)
+                
+                    
             if not metrics['top_down_map'] is None:
                 tdm = copy.deepcopy(self.origin_tdm)
                 # draw all candidate viewpoints
@@ -165,15 +195,15 @@ class SimpleRLEnv(habitat.RLEnv):
                                 pathfinder=self._env._sim.pathfinder,
                             )
                 # print(waypoint2map)
-                cv2.circle(tdm, waypoint2map[::-1], 10, (255,255,0), -1)
-                # cv2.putText(tdm, f"{save_count}", waypoint2map[::-1], cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,255), 2)
+                cv2.circle(tdm, waypoint2map[::-1], 20, (255,255,0), -1)
+                choose_id = viewpoint_info['unique_id']
+                info = self.get_info(None)
+                cv2.putText(tdm, f"{choose_id}_{self._env._elapsed_steps}_{info['distance_to_goal']:.2f}", (60,60), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,255), 2)
                 metrics['top_down_map']["map"] = tdm
                 frame = self.draw_top_down_map(
                     self._env.get_metrics(), heading-np.pi/2, tdm.shape[0]
                 )
-                path = f'{BASE_LOG_DIR}/visualization/{self._env.current_episode.episode_id}'
-                if not os.path.exists(path):
-                    os.makedirs(path)
+
                 cv2.imwrite(f'{path}/{self.count}.png',frame)
                 self.count += 1
         # ----------------------------可视化waypoint----------------------------

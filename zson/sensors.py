@@ -67,16 +67,18 @@ class PanoramicPerceptionSensor(Sensor):
         elif cur_angle > 2*np.pi:
             cur_angle -= 2*np.pi
         assert 0<=cur_angle and cur_angle<=2*np.pi
-        
+        obs = self._sim.get_observations_at()
         split_angle = 360 / self._split_num
         log_angle = 0
         ego_angle = cur_angle
         for _ in range(self._split_num):
             rad_angle = log_angle / 180 * np.pi
-            rotation = [0, np.sin(rad_angle / 2), 0, np.cos(rad_angle / 2)]
-            obs = self._sim.get_observations_at(position=position, rotation=rotation)
-            pano_perception[self._pano_key_prompt(log_angle)[0]] = obs['rgb']
-            pano_perception[self._pano_key_prompt(log_angle)[1]] = obs['depth']
+            # rotation = [0, np.sin(rad_angle / 2), 0, np.cos(rad_angle / 2)]
+            # obs = self._sim.get_observations_at(position=position, rotation=rotation)
+            # pano_perception[self._pano_key_prompt(log_angle)[0]] = obs['rgb']
+            # pano_perception[self._pano_key_prompt(log_angle)[1]] = obs['depth']
+            pano_perception[self._pano_key_prompt(log_angle)[0]] = obs[self._pano_key_prompt(log_angle)[0]]
+            pano_perception[self._pano_key_prompt(log_angle)[1]] = obs[self._pano_key_prompt(log_angle)[1]]
             ego_angle += split_angle 
             log_angle += split_angle 
             if ego_angle > 360:
