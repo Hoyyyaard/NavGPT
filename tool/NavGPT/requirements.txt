@@ -1,0 +1,5 @@
+langchain==0.0.246
+numpy
+openai==0.28.1
+transformers
+networkx

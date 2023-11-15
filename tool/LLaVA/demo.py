@@ -2,6 +2,7 @@ from llava.model.builder import load_pretrained_model
 from llava.mm_utils import get_model_name_from_path
 from llava.eval.run_llava import eval_model
 import torch
+import json
 
 # model_path = "liuhaotian/llava-v1.5-7b"
 
@@ -13,27 +14,23 @@ import torch
 
 IMAGE_PLACEHOLDER = "<image-placeholder>"
 
+with open(f'/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache//instruction.json','r') as f:
+    instr = json.load(f)['instruction']
+
 model_path = "liuhaotian/llava-v1.5-7b"
-prompt = f"Given the task: exit the bedroom. Please help me to finish the task in indoor environment.\n\
-I will give you a panoramic image consist of 12 rgbs wihich label range from 0 to 11.\
-And provide you some navigable points in format : [label, distance] corresponding to the views.\
+prompt = f"Given the task: {instr}. Please help me to finish the task in indoor environment.\n\
+Given a panoramic image consist of 4 rgbs wihich label range from 0 to 3.\
 you should choose one of the providing navigable point to help me finish the task.\
-Please only output the label of the navigable point.\n\
-0:\n\
+Please only output the label of the navigable view.\n\
+view0:\n\
 {IMAGE_PLACEHOLDER}\n\
-1:\n\
+view1:\n\
 {IMAGE_PLACEHOLDER}\n\
-2:\n\
+view2:\n\
 {IMAGE_PLACEHOLDER}\n\
-3:\n\
+view3:\n\
 {IMAGE_PLACEHOLDER}\n\
-4:\n\
-{IMAGE_PLACEHOLDER}\n\
-navigable options:\n\
-0. view: 1, distance: 1m\n\
-1. view: 1, distance: 0.75m\n\
-2. view: 3, distance: 0.75m\n\
-Please choose one navigable point from navigable options:\
+Please choose one view to finish the task:\
 "
 
 
@@ -65,12 +62,10 @@ Please choose one navigable point from navigable options:\
 # image_file = "https://llava-vl.github.io/static/images/view.jpg"
 
 
-image_file = "/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/0.png,\
-/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/1.png,\
-/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/2.png,\
-/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/3.png,\
-/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/4.png\
-"
+image_file = "/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/rgb_forward.png,\
+/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/rgb_left.png,\
+/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/rgb_back.png,\
+/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/rgb_right.png"
 
 
 # /mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/5.png\
@@ -95,5 +90,8 @@ args = type('Args', (), {
     "sep": ",",
 })()
 
-eval_model(args)
+import json
+output = eval_model(args)
+with open('/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/result.json','w') as f:
+    json.dump({'select_view':output},f)
 print(torch.cuda.max_memory_allocated() / (1024**3))

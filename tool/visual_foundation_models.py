@@ -36,7 +36,7 @@ class VisualFoundationModels(nn.Module):
         self.preprocess = transforms.Compose(
             [
                 Resize(size=(364, 364), mode='bicubic', align_corners=False),
-                transforms.Normalize(mean, std)
+                # transforms.Normalize(mean, std)
             ]
         )
         self.captioner = self.blip
@@ -55,12 +55,27 @@ class VisualFoundationModels(nn.Module):
         return predictor
 
     def get_caption(self, batch_input):
+        batch_size = batch_input.shape[0]
+        
+        # path = '/mnt/gluster/home/zhihongyan/Project/NavGPT/test_caption'
+        # import glob
+        # image_paths = glob.glob(f'{path}/*.png')
+        # images = []
+        # for ip in image_paths:
+        #     images.append(self.blip_vis_processors["eval"](Image.open(ip)).unsqueeze(0).to(self.device))
+        # images = torch.cat(images, dim=0)
+        # caption = self.captioner.generate({"image": images, "prompt": [self.blip_prompt]*batch_size})
+        
         # image = self.blip_vis_processors["eval"](raw_image).unsqueeze(0).to(self.device)
         # print(image.shape)
-        if batch_input.dtype == torch.uint8:
-            batch_input = batch_input.float() / 255
-        batch_input = self.preprocess(batch_input) # [B,C,H,W]→[B,C,364,364]
-        batch_size = batch_input.shape[0]
+        # if batch_input.dtype == torch.uint8:
+        #     batch_input = batch_input.float() / 255
+        # batch_input = self.preprocess(batch_input) # [B,C,H,W]→[B,C,364,364]
+        
+        batch_input = batch_input.permute(0,3,2,1).numpy()
+        batch_input = [self.blip_vis_processors["eval"](Image.fromarray(bi)).unsqueeze(0).to(self.device) for bi in batch_input]
+        batch_input = torch.cat(batch_input, dim=0)
+        
         caption = self.captioner.generate({"image": batch_input.to(self.device), "prompt": [self.blip_prompt]*batch_size})
         return caption
 
@@ -98,6 +113,10 @@ class VisualFoundationModels(nn.Module):
     def forward(self, batch_input):
         # print(batch_input.shape)
         # print(batch_input.shape)
+        # for ri,rgb in enumerate(batch_input):
+        #     image = (rgb.cpu().clone().permute(2,1,0).numpy())
+        #     image = Image.fromarray((image * 255).astype(np.uint8))
+        #     image.save(f"/mnt/gluster/home/zhihongyan/Project/NavGPT/test_caption/{ri}.png")
         caption = self.get_caption(batch_input)
         bbox, labels = self.detect_object(batch_input)
         return caption, bbox, labels

@@ -139,6 +139,7 @@ def eval_model(args):
         outputs = outputs[: -len(stop_str)]
     outputs = outputs.strip()
     print(outputs)
+    return outputs
 
 
 if __name__ == "__main__":

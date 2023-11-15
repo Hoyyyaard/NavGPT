@@ -208,41 +208,41 @@ class Waypoint_Predictor():
         
         
         # For llava
-        if LLM_TYPE == 'llava':
-            if not os.path.exists(LLAVA_CACHE_DIR):
-                os.makedirs(LLAVA_CACHE_DIR)
-            angle = 0
-            for ai in range(12):
-                key = 'rgb' if angle == 0 else f'rgb_{angle}.0'
-                image = observations[key].cpu().clone()
-                image = image.squeeze(0) 
-                image = image.numpy()
-                image = (image * 255).astype(np.uint8)
-                image = Image.fromarray(image)
-                image.save(f'{LLAVA_CACHE_DIR}/{ai}.png')
-                angle += 30
-            candidate_viewpoint_info = {}
-            global_cand_vp_id = 0
-            for a,ag in enumerate(batch_angles[0]):
-                viewpointId = batch_img_idxes[0][a].item()
-                if not viewpointId in candidate_viewpoint_info.keys():
-                    candidate_viewpoint_info[viewpointId] = [{'unique_id':f'{global_cand_vp_id:04}',        
-                                                        'angle':ag,
-                                                        'distance':batch_distances[0][a],
-                                                        'pos2world':self._viewpoint2world(ag, 
-                                                                                          batch_distances[0][a], 
-                                                                                        observations['cur_pos2world'][0])}]
-                    global_cand_vp_id += 1                                                                     
-                else:
-                    candidate_viewpoint_info[viewpointId].append({'unique_id':f'{global_cand_vp_id:04}',          
-                                                        'angle':ag,
-                                                        'distance':batch_distances[0][a],
-                                                        'pos2world':self._viewpoint2world(ag, 
-                                                                                          batch_distances[0][a], 
-                                                                                          observations['cur_pos2world'][0])})
-                    global_cand_vp_id += 1     
-            with open(f'{LLAVA_CACHE_DIR}/candidate_viewpoint_info.json',"w") as f:
-                json.dump(candidate_viewpoint_info, f)                                       
+        # if LLM_TYPE == 'llava':
+        #     if not os.path.exists(LLAVA_CACHE_DIR):
+        #         os.makedirs(LLAVA_CACHE_DIR)
+        #     angle = 0
+        #     for ai in range(12):
+        #         key = 'rgb' if angle == 0 else f'rgb_{angle}.0'
+        #         image = observations[key].cpu().clone()
+        #         image = image.squeeze(0) 
+        #         image = image.numpy()
+        #         image = (image * 255).astype(np.uint8)
+        #         image = Image.fromarray(image)
+        #         image.save(f'{LLAVA_CACHE_DIR}/{ai}.png')
+        #         angle += 30
+        #     candidate_viewpoint_info = {}
+        #     global_cand_vp_id = 0
+        #     for a,ag in enumerate(batch_angles[0]):
+        #         viewpointId = batch_img_idxes[0][a].item()
+        #         if not viewpointId in candidate_viewpoint_info.keys():
+        #             candidate_viewpoint_info[viewpointId] = [{'unique_id':f'{global_cand_vp_id:04}',        
+        #                                                 'angle':ag,
+        #                                                 'distance':batch_distances[0][a],
+        #                                                 'pos2world':self._viewpoint2world(ag, 
+        #                                                                                   batch_distances[0][a], 
+        #                                                                                 observations['cur_pos2world'][0])}]
+        #             global_cand_vp_id += 1                                                                     
+        #         else:
+        #             candidate_viewpoint_info[viewpointId].append({'unique_id':f'{global_cand_vp_id:04}',          
+        #                                                 'angle':ag,
+        #                                                 'distance':batch_distances[0][a],
+        #                                                 'pos2world':self._viewpoint2world(ag, 
+        #                                                                                   batch_distances[0][a], 
+        #                                                                                   observations['cur_pos2world'][0])})
+        #             global_cand_vp_id += 1     
+        #     with open(f'{LLAVA_CACHE_DIR}/candidate_viewpoint_info.json',"w") as f:
+        #         json.dump(candidate_viewpoint_info, f)                                       
             
         
         return batch_angles, batch_distances, batch_angle_index_120split, batch_img_idxes

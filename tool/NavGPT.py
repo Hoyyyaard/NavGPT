@@ -1,13 +1,19 @@
 import os
 import openai
 # openai.api_key = os.environ['OPENAI_API_KEY']
-openai.api_key = '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'
+# openai.api_key = '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'
 openai.proxy = "http://127.0.0.1:7895"
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_random_exponential,
-)  
+) 
+import json
+with open('/mnt/gluster/home/zhihongyan/Project/NavGPT/data/api_key.json', 'r') as f:
+    api_key = json.load(f)
+api_pay_key = api_key['pay']
+KEY_INDEX = 0
+api_key_list = api_key['free']
 import os
 from tool.visual_foundation_models import VisualFoundationModels
 import torch
@@ -29,6 +35,13 @@ class NavGPT():
     
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(10))
     def query_gpt3(self, messages):
+        if os.environ['API_MODE'] == 'PAY':
+            openai.api_key = api_pay_key
+        else:
+            openai.api_key = api_key_list[KEY_INDEX]
+            KEY_INDEX += 1
+            if KEY_INDEX == len(api_key_list):
+                KEY_INDEX = 0
         completion = openai.ChatCompletion.create(
             model="gpt-3.5-turbo", 
             messages=messages
@@ -229,6 +242,8 @@ Objects in View:{object_list[i]}\n\
         self.history_chats = []
         self.viewpoint_summary_cache = []
         self.episode_id = episode_id
+        if hasattr(self, "logger"):
+            del self.logger
         self.logger = logging.getLogger(__name__)
 
         # handler1 = logging.StreamHandler()
@@ -307,17 +322,13 @@ Action: the action to take, must be one of the tools [action_maker]\nAction Inpu
         overall_message = self._prompt2message(overall_prompt)
         self.logger.info('---------------------------------------query------------------------------------------------')
         self.logger.info(overall_prompt)
-        try:
-            answer, token_info = self.query_gpt3(overall_message)
-        except Exception as e:
-            print(e)
-            time.sleep(20)
+        answer, token_info = self.query_gpt3(overall_message)
         self.logger.info('---------------------------------------answer------------------------------------------------')
         self.logger.info(answer)
         action, thought = self._answer2info(answer)
         # if (not action == 'fail'):
         #     self.parse_history_message(observation_prompt, thought)
-        return action, thought
+        return action, thought, token_info
     
     
     
