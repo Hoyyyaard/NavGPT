@@ -94,6 +94,18 @@ class PanoramicPerceptionSensor(Sensor):
         # cv2.imshow("test1",np.concatenate(pano_imgs,axis=1))
         # cv2.waitKey(0)
     
+        # log llava image
+        from PIL import Image
+        forward = Image.fromarray(obs['rgb_forward'])
+        forward.save('/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/rgb_forward.png')
+        backward = Image.fromarray(obs['rgb_back'])
+        backward.save('/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/rgb_back.png')
+        left = Image.fromarray(obs['rgb_left'])
+        left.save('/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/rgb_left.png')
+        right = Image.fromarray(obs['rgb_right'])
+        right.save('/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache/rgb_right.png')
+        
+    
         return {"panoramic_perception":pano_perception,
                 "split_angle":split_angle,
                 "cur_angle":cur_angle,

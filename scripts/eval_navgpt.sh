@@ -2,12 +2,12 @@
 
 export MAGNUM_LOG=quiet
 export HABITAT_SIM_LOG=quiet
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=2
 epi_num=$1
-log_dir=results/vln_baselines/NavGPT/new_caption/${epi_num}_oracle_woracle
+log_dir=results/vln_baselines/NavGPT/new_caption/${epi_num}_llava_woracle
 export BASE_LOG_DIR=${log_dir}
 export MODE=normal
-export LLM_TYPE=gpt
+export LLM_TYPE=llava
 export CAND=normal
 export API_MODE=PAY
 export LLAVA_CACHE_DIR=/mnt/gluster/home/zhihongyan/Project/NavGPT/results/llava_cache

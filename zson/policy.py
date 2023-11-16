@@ -25,6 +25,10 @@ class NavGPTPolicyNet(Net):
         self.NavGPTs = [NavGPT()] * config.NUM_ENVIRONMENTS
         self.episode_id = [None] * config.NUM_ENVIRONMENTS
         self.global_cand_vp_id = 0
+        from multiprocessing.connection import Client
+
+        # self.client = Client(('127.0.0.1', 8000))
+        
         
     def reset(self, index):
         pass
@@ -68,18 +72,18 @@ class NavGPTPolicyNet(Net):
             self.graph[node] = {}
             self.graph[node]['position'] = pos
             self.graph[node]['navigable_points'] = []
-        # for edge in list(graph_info['edges'].values()):
-        #     node = edge['nodes'][0]
-        #     self.graph[node]['navigable_points'].append(edge["end_coor"])
-        #     node = edge['nodes'][1]
-        #     self.graph[node]['navigable_points'].append(edge["start_coor"])
-        for k,v in self.graph.items():
-            nav_poss = []
-            for _,v1 in self.graph.items():
-                dis = (np.sqrt((v['position'][0] - v1['position'][0]) ** 2 + (v['position'][1] - v1['position'][1]) ** 2 + (v['position'][2] - v1['position'][2]) ** 2))
-                if dis <= 3 and dis > 0.25:
-                    nav_poss.append(v1['position'])
-            self.graph[k]['navigable_points'].extend(nav_poss)
+        for edge in list(graph_info['edges'].values()):
+            node = edge['nodes'][0]
+            self.graph[node]['navigable_points'].append(edge["end_coor"])
+            node = edge['nodes'][1]
+            self.graph[node]['navigable_points'].append(edge["start_coor"])
+        # for k,v in self.graph.items():
+        #     nav_poss = []
+        #     for _,v1 in self.graph.items():
+        #         dis = (np.sqrt((v['position'][0] - v1['position'][0]) ** 2 + (v['position'][1] - v1['position'][1]) ** 2 + (v['position'][2] - v1['position'][2]) ** 2))
+        #         if dis <= 3 and dis > 0.25:
+        #             nav_poss.append(v1['position'])
+        #     self.graph[k]['navigable_points'].extend(nav_poss)
 
     def _parse_candidate_viewpoint_from_graph(self, cur_pos, split_angle2rad):
         min_distance = float('inf')
@@ -236,39 +240,58 @@ class NavGPTPolicyNet(Net):
             LLAVA_CACHE_DIR = os.environ['LLAVA_CACHE_DIR']
             if not os.path.exists(LLAVA_CACHE_DIR):
                 os.makedirs(LLAVA_CACHE_DIR)
-            key = ['rgb_forward','rgb_left','rgb_back','rgb_right']
-            for k in key:
-                image = observations[k].cpu().clone()
-                image = image.squeeze(0) 
-                image = image.numpy()
-                image = (image * 255).astype(np.uint8)
-                image = Image.fromarray(image)
-                image.save(f'{LLAVA_CACHE_DIR}/{k}.png')
+            # key = ['rgb_forward','rgb_left','rgb_back','rgb_right']
+            # for k in key:
+            #     image = observations[k].cpu().clone()
+            #     image = image.squeeze(0) 
+            #     image = image.numpy()
+            #     image = (image * 255).astype(np.uint8)
+            #     image = Image.fromarray(image)
+            #     image.save(f'{LLAVA_CACHE_DIR}/{k}.png')
             with open(f'{LLAVA_CACHE_DIR}/instruction.json','w') as f:
                 json.dump({'instruction':observations['instruction'][0]},f)
             ac = None 
-            os.system('cd /mnt/gluster/home/zhihongyan/Project/NavGPT/tool/LLaVA/ && export CUDA_VISIBLE_DEVICES=2,3 && /mnt/gluster/home/zhihongyan/anaconda3/envs/llava/bin/python demo.py')
+            # os.system('cd /mnt/gluster/home/zhihongyan/Project/NavGPT/tool/LLaVA/ && export CUDA_VISIBLE_DEVICES=6,7 && /mnt/gluster/home/zhihongyan/anaconda3/envs/llava/bin/python demo.py')
+            with open(f'{LLAVA_CACHE_DIR}/status.json','w') as f:
+                json.dump({'status':'run'},f)
+            # for _ in range(10):
+            #     self.client.send(data)
+            # print('waiting for llava')
+            # response = self.client.recv()  # 等待接受数据
+            # print(response)
+            response = None
+            while not response == 'success':
+                with open(f'{LLAVA_CACHE_DIR}/status.json','r') as f:
+                    response = json.load(f)['status'] 
             with open(f'{LLAVA_CACHE_DIR}/result.json','r') as f:
-                select_view = int(json.load(f)['select_view'][-1])
-            self.NavGPTs[0].logger.info(f'-------------------------------llava select: {select_view}-----------------------------------')
-            select_view_range = list(range((select_view)*3,(select_view+1)*3))
-            select_view_candidate = None
-            while len(select_view_range) > 0:
-                sv = random.choice(select_view_range)
-                select_view_range.remove(sv)
-                if sv in batch_candidate_viewpoints[0].keys():
-                    select_view_candidate = batch_candidate_viewpoints[0][sv]
-                    break
-                
-            if select_view_candidate is None:
-                return_actions.append('fail')
+                llava_answer = json.load(f)['select_view'] 
+            if 'finish' in llava_answer:
+                return_actions.append('finish')
             else:
-                random.seed(0)
-                ac = random.choice(select_view_candidate)
-                ac['all_viewpoint_info'] = list(batch_candidate_viewpoints[0].values())
-                self.NavGPTs[0].logger.info('-------------------------------target position-----------------------------------')
-                self.NavGPTs[0].logger.info(ac['pos2world'])
-                return_actions.append(ac)
+                select_view = int(llava_answer[4])
+                
+                self.NavGPTs[0].logger.info(f'-------------------------------llava select: {llava_answer}-----------------------------------')
+                select_view_range = list(range((select_view-1)*2,(select_view)*2))
+                select_view_candidate = None
+                while len(select_view_range) > 0:
+                    sv = random.choice(select_view_range)
+                    select_view_range.remove(sv)
+                    if sv in batch_candidate_viewpoints[0].keys():
+                        select_view_candidate = batch_candidate_viewpoints[0][sv]
+                        break
+                    
+                if select_view_candidate is None:
+                    random_action = list(batch_candidate_viewpoints[0].values())[0][0]
+                    random_action['all_viewpoint_info'] = list(batch_candidate_viewpoints[0].values())
+                    return_actions.append(random_action)
+                    self.NavGPTs[0].logger.info(f'-------------------------------use random agent-----------------------------------')
+                else:
+                    random.seed(0)
+                    ac = random.choice(select_view_candidate)
+                    ac['all_viewpoint_info'] = list(batch_candidate_viewpoints[0].values())
+                    self.NavGPTs[0].logger.info('-------------------------------target position-----------------------------------')
+                    self.NavGPTs[0].logger.info(ac['pos2world'])
+                    return_actions.append(ac)
         # --------------Return.返回选择的viewpint info-------------------------------------------------
         return return_actions
         
